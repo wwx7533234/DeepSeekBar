@@ -1,0 +1,10 @@
+.build/
+dist/
+.DS_Store
+
+# Local credentials / account data (never commit)
+credentials.json
+**/credentials.json
+.env
+.env.*
+*.log
