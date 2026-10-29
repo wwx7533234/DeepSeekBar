@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 
+/// 设置 · 与主面板同一套台账语言：区块头 + 发丝线 + 方角控件。
 struct SettingsPage: View {
     @EnvironmentObject var state: AppState
     var onBack: () -> Void
@@ -23,21 +24,22 @@ struct SettingsPage: View {
         VStack(spacing: 0) {
             header
 
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 11) {
-                    accountCard
-                    officialCard
-                    refreshCard
-                    aboutCard
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(spacing: 0) {
+                    sourceSection
+                    menuBarSection
+                    accountSection
+                    officialSection
+                    refreshSection
+                    aboutSection
+                    Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 2)
-                .padding(.bottom, 14)
             }
 
             footer
         }
-        .frame(width: 380, height: 600)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DS.ground)
         .onAppear {
             keyInput = state.settings.apiKey ?? ""
         }
@@ -49,64 +51,177 @@ struct SettingsPage: View {
     // MARK: - 头部
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Text("设置")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(DS.textPrimary)
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Text("设置")
+                    .font(DSFont.text(13, weight: .semibold))
+                    .tracking(0.3)
+                    .foregroundStyle(DS.ink)
 
-            Spacer()
+                Rectangle()
+                    .fill(DS.rule)
+                    .frame(width: 14, height: 1)
 
-            DSPill(text: "仅存本机", color: DS.green, icon: "lock.fill")
+                Text("SETTINGS")
+                    .font(DSFont.label(8, weight: .medium))
+                    .tracking(1.6)
+                    .foregroundStyle(DS.ink3)
+
+                Spacer()
+
+                MonoTag(text: "LOCAL ONLY", color: DS.ink3)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 44)
+
+            Hairline()
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
     }
 
     private var footer: some View {
-        HStack(spacing: 8) {
-            Button("返回") { onBack() }
-                .buttonStyle(DSSecondaryButtonStyle())
+        VStack(spacing: 0) {
+            Hairline()
+            HStack(spacing: 8) {
+                DSIconButton(systemName: "chevron.left", help: "返回", size: 24, action: onBack)
+                Text("返回")
+                    .font(DSFont.text(10, weight: .medium))
+                    .foregroundStyle(DS.ink2)
+                    .onTapGesture { onBack() }
 
-            Spacer()
+                Spacer()
 
-            DSIconButton(systemName: "power", help: "退出 DeepSeekBar", size: 22) {
-                NSApplication.shared.terminate(nil)
+                DSIconButton(systemName: "power", help: "退出 DeepSeekBar", size: 24) {
+                    NSApplication.shared.terminate(nil)
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 44)
+        }
+    }
+
+    // MARK: - 余额来源
+
+    private var sourceIndex: Int {
+        switch state.balanceSource {
+        case .auto:       return 0
+        case .apiKey:     return 1
+        case .webAccount: return 2
+        }
+    }
+
+    private var sourceSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHead("余额来源", meta: "SOURCE")
+
+            DSSegmentedScale(
+                options: ["自动", "API Key", "网页账号"],
+                selectedIndex: sourceIndex
+            ) { index in
+                guard let picked = [BalanceSource.auto, .apiKey, .webAccount][safe: index] else { return }
+                withAnimation(.easeOut(duration: 0.16)) {
+                    state.balanceSource = picked
+                }
+            }
+
+            HStack(spacing: 5) {
+                Rectangle()
+                    .fill(state.activeBalanceSource == nil ? DS.warn : DS.ok)
+                    .frame(width: 4, height: 4)
+                Text(state.balanceSourceNote)
+                    .font(DSFont.text(9))
+                    .foregroundStyle(state.activeBalanceSource == nil ? DS.warn : DS.ink2)
+            }
+
+            Text(state.balanceSource.detail)
+                .font(DSFont.text(8.5))
+                .foregroundStyle(DS.ink3)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if state.balanceSource == .webAccount && !state.hasOfficialToken {
+                HStack(spacing: 8) {
+                    Button("网页登录授权") { state.openOfficialLogin() }
+                        .buttonStyle(DSPrimaryButtonStyle())
+                    Spacer()
+                }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 6)
-        .padding(.bottom, 10)
-        .background(DS.background)
+        .dsCard(padding: 14)
+    }
+
+    // MARK: - 菜单栏图标
+
+    private var menuBarStyleIndex: Int {
+        state.menuBarIconStyle == .standard ? 0 : 1
+    }
+
+    private var menuBarSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHead("菜单栏", meta: "MENU BAR")
+
+            DSSegmentedScale(
+                options: ["常规图标", "显示余额"],
+                selectedIndex: menuBarStyleIndex
+            ) { index in
+                let styles = MenuBarIconStyle.allCases          // wallet, currency, amount
+                guard let picked = styles[safe: index] else { return }
+                withAnimation(.easeOut(duration: 0.16)) {
+                    state.menuBarIconStyle = picked
+                }
+            }
+
+            HStack(spacing: 8) {
+                Text("预览")
+                    .font(DSFont.text(8.5))
+                    .foregroundStyle(DS.ink3)
+
+                HStack(spacing: 3) {
+                    if let icon = MenuBarMark.icon(for: state.menuBarIconStyle) {
+                        Image(nsImage: icon)
+                    }
+                    if !previewText.isEmpty {
+                        Text(previewText)
+                            .font(DSFont.text(13))
+                            .monospacedDigit()
+                            .foregroundStyle(DS.ink)
+                    }
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(DS.tick)
+                .overlay(Rectangle().strokeBorder(DS.rule, lineWidth: 1))
+
+                Spacer()
+            }
+
+            Text(state.menuBarIconStyle.detail)
+                .font(DSFont.text(8.5))
+                .foregroundStyle(DS.ink3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .dsCard(padding: 14)
+    }
+
+    /// 预览里用真实金额（常规图标不显示金额）
+    private var previewText: String {
+        state.menuBarText
     }
 
     // MARK: - API Key
 
-    private var accountCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 9) {
-                settingIcon("key.fill", color: DS.brand)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("API Key")
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(DS.textPrimary)
-                    Text("用于读取账户余额")
-                        .font(.system(size: 9))
-                        .foregroundStyle(DS.textTertiary)
-                }
-                Spacer()
-                if state.apiKeyConfigured {
-                    DSPill(text: "已配置", color: DS.green, icon: "checkmark.circle.fill")
-                } else {
-                    DSPill(text: "未配置", color: DS.textSecondary, showsDot: true)
-                }
-            }
+    private var accountSection: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            SectionHead("API Key", meta: state.apiKeyConfigured ? "CONFIGURED" : "MISSING")
 
-            HStack(spacing: 6) {
+            Text("读取 platform.deepseek.com 的余额接口。")
+                .font(DSFont.text(9))
+                .foregroundStyle(DS.ink3)
+
+            // 下划线输入框
+            HStack(spacing: 8) {
                 SecureField("sk-...", text: $keyInput)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(DS.textPrimary)
+                    .font(DSFont.label(11, weight: .regular))
+                    .foregroundStyle(DS.ink)
                     .focused($keyFocused)
                     .onSubmit { saveKey() }
 
@@ -117,29 +232,22 @@ struct SettingsPage: View {
                     }
                 } label: {
                     Image(systemName: "doc.on.clipboard")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(DS.textSecondary)
-                        .frame(width: 22, height: 22)
-                        .background(Circle().fill(DS.card))
+                        .font(.system(size: 10))
+                        .foregroundStyle(DS.ink3)
                 }
                 .buttonStyle(.plain)
                 .help("从剪贴板粘贴")
                 .accessibilityLabel("从剪贴板粘贴 API Key")
             }
-            .padding(.leading, 10)
-            .padding(.trailing, 4)
-            .padding(.vertical, 5)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(DS.cardSoft)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(keyFocused ? DS.brand.opacity(0.65) : DS.border, lineWidth: keyFocused ? 1.2 : 0.8)
-            )
+            .padding(.bottom, 6)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(keyFocused ? DS.ink : DS.rule)
+                    .frame(height: 1)
+            }
 
-            HStack(spacing: 7) {
-                Button("保存 Key") { saveKey() }
+            HStack(spacing: 8) {
+                Button("保存") { saveKey() }
                     .buttonStyle(DSPrimaryButtonStyle())
 
                 Button("测试连接") { runTest() }
@@ -149,54 +257,61 @@ struct SettingsPage: View {
                 if isTesting {
                     ProgressView()
                         .controlSize(.mini)
-                        .scaleEffect(0.72)
-                        .frame(width: 14, height: 14)
+                        .scaleEffect(0.62)
+                        .frame(width: 12, height: 12)
                 }
 
                 if justSaved {
-                    Label("已保存", systemImage: "checkmark.circle.fill")
-                        .font(.system(size: 9.5, weight: .medium))
-                        .foregroundStyle(DS.green)
-                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                    Text("SAVED")
+                        .font(DSFont.label(8, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundStyle(DS.ok)
                 }
 
                 Spacer(minLength: 4)
 
                 Link(destination: DeepSeekAPI.platformKeyURL) {
                     HStack(spacing: 2) {
-                        Text("获取 API Key")
+                        Text("获取 Key")
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 7, weight: .bold))
                     }
-                    .font(.system(size: 9.5, weight: .medium))
-                    .foregroundStyle(DS.brand)
+                    .font(DSFont.text(9.5, weight: .medium))
+                    .foregroundStyle(DS.ink2)
                 }
             }
 
             if let result = testResult {
-                Label(result, systemImage: result.contains("成功") ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.system(size: 9.5, weight: .medium))
-                    .foregroundStyle(result.contains("成功") ? DS.green : DS.red)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 5) {
+                    Rectangle()
+                        .fill(result.contains("成功") ? DS.ok : DS.err)
+                        .frame(width: 4, height: 4)
+                    Text(result)
+                        .font(DSFont.text(9))
+                        .foregroundStyle(result.contains("成功") ? DS.ok : DS.err)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
+            Hairline(color: DS.ruleSoft)
+
             HStack(spacing: 6) {
-                Text("凭证保存在本机 Application Support（600 权限）")
-                    .font(.system(size: 8.5))
-                    .foregroundStyle(DS.textTertiary)
+                Text("凭证存于本机 Application Support，权限 600")
+                    .font(DSFont.text(8.5))
+                    .foregroundStyle(DS.ink3)
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 if state.apiKeyConfigured {
-                    Button("清除 Key") {
+                    Button("清除") {
                         state.clearApiKey()
                         keyInput = ""
                         justSaved = false
                         testResult = nil
                     }
                     .buttonStyle(.plain)
-                    .font(.system(size: 8.5, weight: .medium))
-                    .foregroundStyle(DS.textTertiary)
+                    .font(DSFont.text(8.5, weight: .medium))
+                    .foregroundStyle(DS.ink3)
                 }
             }
         }
@@ -205,61 +320,42 @@ struct SettingsPage: View {
 
     // MARK: - 官方用量
 
-    private var officialCard: some View {
+    private var officialSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 9) {
-                settingIcon("person.badge.key.fill", color: DS.violet)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("官方用量")
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(DS.textPrimary)
-                    Text("与 platform.deepseek.com 同源")
-                        .font(.system(size: 9))
-                        .foregroundStyle(DS.textTertiary)
-                }
-                Spacer()
-                officialStatePill
-            }
+            SectionHead("官方用量", meta: "PLATFORM")
 
             officialStateBody
 
-            HStack(spacing: 7) {
+            HStack(spacing: 8) {
                 Button("网页登录授权") { state.openOfficialLogin() }
                     .buttonStyle(DSPrimaryButtonStyle())
 
                 if state.hasOfficialToken {
-                    Button("立即刷新") {
+                    Button("刷新") {
                         Task { await state.refreshOfficial() }
                     }
                     .buttonStyle(DSSecondaryButtonStyle())
 
                     Button("退出") { state.logoutOfficial() }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 9.5))
-                        .foregroundStyle(DS.textTertiary)
+                        .buttonStyle(DSSecondaryButtonStyle())
                 }
 
                 Spacer()
             }
 
-            Text("Token 失效后重新授权即可，不影响余额功能。")
-                .font(.system(size: 8.5))
-                .foregroundStyle(DS.textTertiary)
+            Text("Token 失效后重新授权即可，不影响余额。")
+                .font(DSFont.text(8.5))
+                .foregroundStyle(DS.ink3)
         }
         .dsCard(padding: 14)
     }
 
-    @ViewBuilder
-    private var officialStatePill: some View {
+    private var officialStateText: String {
         switch state.officialState {
-        case .ok:
-            DSPill(text: "已同步", color: DS.green, icon: "checkmark.seal.fill")
-        case .loading:
-            DSPill(text: "同步中", color: DS.amber, icon: "arrow.triangle.2.circlepath")
-        case .failed:
-            DSPill(text: "已失效", color: DS.red, icon: "exclamationmark.circle.fill")
-        case .notAuthorized:
-            DSPill(text: "未授权", color: DS.textSecondary, showsDot: true)
+        case .ok:            return "SYNCED"
+        case .loading:       return "SYNCING"
+        case .failed:        return "EXPIRED"
+        case .notAuthorized: return "NOT LINKED"
         }
     }
 
@@ -267,96 +363,64 @@ struct SettingsPage: View {
     private var officialStateBody: some View {
         switch state.officialState {
         case .ok:
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 5) {
-                    Image(systemName: "clock")
-                        .font(.system(size: 8.5))
-                    Text("同步于 \(state.officialData.fetchedAt?.formatted(date: .omitted, time: .shortened) ?? "—")")
-                        .font(.system(size: 9))
+                    MonoTag(text: "SYNCED")
+                    Text(state.officialData.fetchedAt?.formatted(date: .omitted, time: .shortened) ?? "—")
+                        .font(DSFont.label(9, weight: .medium))
+                        .foregroundStyle(DS.ink2)
                 }
-                .foregroundStyle(DS.textTertiary)
 
                 if let message = state.officialMessage {
-                    Label(message, systemImage: "clock.arrow.circlepath")
-                        .font(.system(size: 8.5))
-                        .foregroundStyle(DS.amber)
+                    Text(message)
+                        .font(DSFont.text(8.5))
+                        .foregroundStyle(DS.warn)
+                        .lineLimit(2)
                 }
             }
 
         case .loading:
             HStack(spacing: 7) {
-                ProgressView().controlSize(.mini).scaleEffect(0.72)
+                ProgressView().controlSize(.mini).scaleEffect(0.62)
                 Text("正在同步官方数据…")
-                    .font(.system(size: 9))
-                    .foregroundStyle(DS.textSecondary)
+                    .font(DSFont.text(9))
+                    .foregroundStyle(DS.ink3)
             }
 
         case .failed(let message):
-            Label(message, systemImage: "exclamationmark.triangle.fill")
-                .font(.system(size: 9))
-                .foregroundStyle(DS.red)
+            Text(message)
+                .font(DSFont.text(9))
+                .foregroundStyle(DS.err)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
 
         case .notAuthorized:
             Text("登录一次即可查看累计消费、请求次数与近 30 天明细。")
-                .font(.system(size: 9))
-                .foregroundStyle(DS.textSecondary)
+                .font(DSFont.text(9))
+                .foregroundStyle(DS.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     // MARK: - 刷新频率
 
-    private var refreshCard: some View {
+    private var refreshSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 9) {
-                settingIcon("arrow.clockwise", color: DS.teal)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("自动刷新")
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(DS.textPrimary)
-                    Text("余额与用量共用同一频率")
-                        .font(.system(size: 9))
-                        .foregroundStyle(DS.textTertiary)
-                }
-                Spacer()
-            }
+            SectionHead("自动刷新", meta: "INTERVAL")
 
-            HStack(spacing: 3) {
-                ForEach(refreshOptions, id: \.value) { option in
-                    let selected = state.refreshInterval == option.value
-                    Button {
-                        withAnimation(.easeOut(duration: 0.18)) {
-                            state.refreshInterval = option.value
-                        }
-                    } label: {
-                        Text(option.label)
-                            .font(.system(size: 9.5, weight: selected ? .semibold : .medium))
-                            .foregroundStyle(selected ? .white : DS.textSecondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .fill(selected ? DS.brand : Color.clear)
-                            )
-                    }
-                    .buttonStyle(.plain)
+            Text("余额与用量共用同一频率，后台静默刷新。")
+                .font(DSFont.text(9))
+                .foregroundStyle(DS.ink3)
+
+            DSSegmentedScale(
+                options: refreshOptions.map(\.label),
+                selectedIndex: refreshOptions.firstIndex { $0.value == state.refreshInterval } ?? 2
+            ) { index in
+                guard let picked = refreshOptions[safe: index] else { return }
+                withAnimation(.easeOut(duration: 0.16)) {
+                    state.refreshInterval = picked.value
                 }
             }
-            .padding(3)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(DS.cardSoft)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(DS.border.opacity(0.75), lineWidth: 0.7)
-            )
-
-            Text("后台静默刷新，不会打断当前操作。")
-                .font(.system(size: 8.5))
-                .foregroundStyle(DS.textTertiary)
         }
         .dsCard(padding: 14)
     }
@@ -365,20 +429,22 @@ struct SettingsPage: View {
 
     private var versionText: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.3"
-        return "v\(version) · 菜单栏余额与用量助手"
+        return "v\(version)"
     }
 
-    private var aboutCard: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 9) {
-                DSLogo(size: 28)
-                VStack(alignment: .leading, spacing: 1) {
+    private var aboutSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHead("关于", meta: versionText)
+
+            HStack(spacing: 10) {
+                DSLogo(size: 26)
+                VStack(alignment: .leading, spacing: 2) {
                     Text("DeepSeekBar")
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(DS.textPrimary)
-                    Text(versionText)
-                        .font(.system(size: 9))
-                        .foregroundStyle(DS.textTertiary)
+                        .font(DSFont.text(11, weight: .semibold))
+                        .foregroundStyle(DS.ink)
+                    Text("菜单栏余额与用量助手")
+                        .font(DSFont.text(8.5))
+                        .foregroundStyle(DS.ink3)
                 }
                 Spacer()
                 Button("退出应用") {
@@ -387,36 +453,20 @@ struct SettingsPage: View {
                 .buttonStyle(DSSecondaryButtonStyle())
             }
 
-            DSDivider()
+            Hairline(color: DS.ruleSoft)
 
             HStack(spacing: 5) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 9))
-                    .foregroundStyle(DS.green)
-                Text("所有数据仅保存在本机，不上传第三方")
-                    .font(.system(size: 8.5))
-                    .foregroundStyle(DS.textTertiary)
-                    .lineLimit(1)
+                Rectangle().fill(DS.ok).frame(width: 4, height: 4)
+                Text("所有数据仅保存在本机")
+                    .font(DSFont.text(8.5))
+                    .foregroundStyle(DS.ink3)
                 Spacer(minLength: 4)
                 Link("开放平台", destination: URL(string: "https://platform.deepseek.com")!)
-                    .font(.system(size: 8.5))
-                    .foregroundStyle(DS.brand)
+                    .font(DSFont.text(8.5, weight: .medium))
+                    .foregroundStyle(DS.ink2)
             }
         }
         .dsCard(padding: 14)
-    }
-
-    // MARK: - 小组件
-
-    private func settingIcon(_ name: String, color: Color) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(color.opacity(0.10))
-                .frame(width: 30, height: 30)
-            Image(systemName: name)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(color)
-        }
     }
 
     // MARK: - 动作

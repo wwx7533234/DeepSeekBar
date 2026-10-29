@@ -1,48 +1,58 @@
 import SwiftUI
 import AppKit
 
-/// 设计系统：品牌色、表面色、卡片/按钮/胶囊等可复用组件。
-/// 所有表面色都是动态色，自动跟随系统浅色 / 深色模式。
+/// 设计系统 · 刻度（Scale）
+///
+/// 一块连续的仪表面板，而不是一叠卡片：
+/// - 没有渐变、没有投影、没有玻璃拟态、没有圆角容器、没有图标底砖。
+/// - 层级由排版和发丝线建立：等宽小标签 / 表格数字 / 1px 分隔线。
+/// - 只有一处信号色，出现即代表「当前」；其余全部是纸面与墨色。
 enum DS {
-    // MARK: - 品牌色
+    // MARK: - 墨色与纸面
 
-    static let brand      = Color(hex: 0x4D6BFE)
-    static let brandDeep  = Color(hex: 0x2B3FD0)
-    static let brandLight = Color(hex: 0x8FA6FF)
-    static let violet     = Color(hex: 0x8B5CF6)
-    static let teal       = Color(hex: 0x14B8A6)
-    static let green      = Color(hex: 0x22C55E)
-    static let amber      = Color(hex: 0xF59E0B)
-    static let red        = Color(hex: 0xEF4444)
+    static let ground    = dynamic(0xF3F1EC, 0x0E0F11)   // 纸 / 石墨
+    static let raise     = dynamic(0xFBFAF7, 0x141518)   // 略微抬起的表面
+    static let tick      = dynamic(0xEAE6DE, 0x1B1D21)   // 刻度底色
+    static let ink       = dynamic(0x17181B, 0xEDEDE8)   // 主文字
+    static let ink2      = dynamic(0x4A4B51, 0xB4B5BA)   // 次文字
+    static let ink3      = dynamic(0x6B6C72, 0x8C8D94)   // 微标签
+    static let rule      = dynamic(0xDBD6CD, 0x25272B)   // 发丝线
+    static let ruleSoft  = dynamic(0xE8E4DC, 0x1C1E22)   // 更轻的线
 
-    // MARK: - 自适应表面色
+    // MARK: - 信号色（全屏唯一强调色）
 
-    static let background   = dynamic(0xF4F6FB, 0x0D0F14)
-    static let card         = dynamic(0xFFFFFF, 0x171A21)
-    static let cardSoft     = dynamic(0xF6F8FD, 0x1F232C)
-    static let cardHover    = dynamic(0xEEF2FF, 0x252B37)
-    static let border       = dynamic(0xE7EAF2, 0x2A2F3A)
-    static let divider      = dynamic(0xEEF1F7, 0x262B35)
+    static let signal    = dynamic(0x2A3AC8, 0x97A3FF)
+    static let ok        = dynamic(0x2E7A4E, 0x74CE93)
+    static let warn      = dynamic(0xA9660F, 0xDFA257)
+    static let err       = dynamic(0xB03A32, 0xE07B72)
 
-    static let textPrimary   = dynamic(0x101828, 0xF3F5F9)
-    static let textSecondary = dynamic(0x667085, 0x98A2B3)
-    static let textTertiary  = dynamic(0x98A2B3, 0x6C7688)
+    // MARK: - 旧接口兼容（其余页面沿用，取值已换到新色板）
 
-    // MARK: - 渐变
+    static let brand      = signal
+    static let brandDeep  = signal
+    static let brandLight = signal.opacity(0.55)
+    static let violet     = dynamic(0x5B4B8A, 0xA99BD8)
+    static let teal       = dynamic(0x2F6E6A, 0x74C4BE)
+    static let green      = ok
+    static let amber      = warn
+    static let red        = err
 
-    static let heroGradient = LinearGradient(
-        colors: [Color(hex: 0x2538C8), Color(hex: 0x4D6BFE), Color(hex: 0x8496FF)],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    static let background   = ground
+    static let card         = raise
+    static let cardSoft     = tick
+    static let cardHover    = tick
+    static let border       = rule
+    static let divider      = ruleSoft
 
-    static let barGradient = LinearGradient(
-        colors: [Color(hex: 0x4D6BFE), Color(hex: 0x8B5CF6)],
-        startPoint: .bottom,
-        endPoint: .top
-    )
+    static let textPrimary   = ink
+    static let textSecondary = ink2
+    static let textTertiary  = ink3
 
-    static let radius: CGFloat = 18
+    static let radius: CGFloat = 4
+
+    /// 面板固定尺寸：所有页面共用同一高度，切换页面时菜单栏窗口不需要改变大小
+    static let panelWidth: CGFloat = 380
+    static let panelHeight: CGFloat = 600
 
     // MARK: - 动态色工具
 
@@ -51,6 +61,31 @@ enum DS {
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             return NSColor(hex: isDark ? dark : light)
         })
+    }
+}
+
+// MARK: - 字体
+
+enum DSFont {
+    /// 等宽微标签：8–9pt，拉开字距
+    static func label(_ size: CGFloat = 8.5, weight: Font.Weight = .semibold) -> Font {
+        .system(size: size, weight: weight, design: .monospaced)
+    }
+    /// 正文 / 标签
+    static func text(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight)
+    }
+    /// 数值：表格数字，刷新时不跳宽
+    static func figure(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        .system(size: size, weight: weight, design: .default).monospacedDigit()
+    }
+}
+
+// MARK: - 安全下标
+
+extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
@@ -79,175 +114,281 @@ extension NSColor {
     }
 }
 
-// MARK: - 卡片
+// MARK: - 线
 
-struct DSCardModifier: ViewModifier {
-    var padding: CGFloat
-    var radius: CGFloat
-
-    func body(content: Content) -> some View {
-        content
-            .padding(padding)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(DS.card)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(DS.border, lineWidth: 0.8)
-            )
-            .shadow(color: Color.black.opacity(0.045), radius: 14, x: 0, y: 5)
+/// 横向发丝线，贯穿整个面板
+struct Hairline: View {
+    var color: Color = DS.rule
+    var body: some View {
+        Rectangle().fill(color).frame(height: 1)
     }
 }
 
-extension View {
-    func dsCard(padding: CGFloat = 14, radius: CGFloat = DS.radius) -> some View {
-        modifier(DSCardModifier(padding: padding, radius: radius))
+/// 纵向发丝线，用于分栏
+struct VRule: View {
+    var color: Color = DS.ruleSoft
+    var body: some View {
+        Rectangle().fill(color).frame(width: 1)
     }
 }
 
-// MARK: - 状态胶囊
+struct DSDivider: View {
+    var body: some View { Hairline(color: DS.ruleSoft) }
+}
 
+// MARK: - 标签
+
+/// 区块头：中文名 + 右侧等宽元信息
+struct SectionHead: View {
+    let title: String
+    var meta: String?
+    var accessory: AnyView?
+
+    init(_ title: String, meta: String? = nil) {
+        self.title = title
+        self.meta = meta
+        self.accessory = nil
+    }
+
+    init<T: View>(_ title: String, meta: String? = nil, @ViewBuilder accessory: () -> T) {
+        self.title = title
+        self.meta = meta
+        self.accessory = AnyView(accessory())
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(title)
+                .font(DSFont.text(10.5, weight: .semibold))
+                .foregroundStyle(DS.ink)
+                .tracking(0.4)
+
+            Spacer(minLength: 6)
+
+            if let accessory {
+                accessory
+            } else if let meta {
+                Text(meta)
+                    .font(DSFont.label(8.5))
+                    .tracking(0.9)
+                    .foregroundStyle(DS.ink3)
+            }
+        }
+    }
+}
+
+/// 等宽微标签（大写、拉开字距）
+struct MonoTag: View {
+    let text: String
+    var color: Color = DS.ink3
+    var size: CGFloat = 8.5
+
+    var body: some View {
+        Text(text)
+            .font(DSFont.label(size))
+            .tracking(1.0)
+            .foregroundStyle(color)
+            .lineLimit(1)
+    }
+}
+
+struct DSSectionTitle: View {
+    let text: String
+    var body: some View {
+        Text(text)
+            .font(DSFont.text(10.5, weight: .semibold))
+            .tracking(0.4)
+            .foregroundStyle(DS.ink)
+    }
+}
+
+// MARK: - 状态标记（取代胶囊）
+
+/// 扁平状态标记：一个方点 + 等宽文字 + 细线描边，无胶囊填充
 struct DSPill: View {
     let text: String
-    var color: Color = DS.brand
+    var color: Color = DS.ink3
     var icon: String?
     var showsDot: Bool = true
-    var size: CGFloat = 9.5
+    var size: CGFloat = 8.5
 
     var body: some View {
         HStack(spacing: 4) {
             if let icon {
                 Image(systemName: icon)
-                    .font(.system(size: size - 0.5, weight: .bold))
+                    .font(.system(size: size, weight: .semibold))
             } else if showsDot {
-                Circle()
+                Rectangle()
                     .fill(color)
-                    .frame(width: 5, height: 5)
-                    .shadow(color: color.opacity(0.55), radius: 3)
+                    .frame(width: 4, height: 4)
             }
             Text(text)
-                .font(.system(size: size, weight: .semibold))
+                .font(DSFont.label(size))
+                .tracking(0.6)
                 .lineLimit(1)
         }
         .foregroundStyle(color)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Capsule().fill(color.opacity(0.11)))
-        .overlay(Capsule().strokeBorder(color.opacity(0.12), lineWidth: 0.5))
+        .padding(.vertical, 1)
     }
 }
 
-// MARK: - 图标按钮
+// MARK: - 按钮
 
+/// 主操作：墨色实底，方角，无投影
+struct DSPrimaryButtonStyle: ButtonStyle {
+    var color: Color = DS.ink
+    var expands: Bool = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(DSFont.text(10.5, weight: .medium))
+            .foregroundStyle(DS.ground)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .frame(maxWidth: expands ? .infinity : nil)
+            .background(
+                Rectangle().fill(color.opacity(configuration.isPressed ? 0.75 : 1))
+            )
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+/// 次操作：发丝线描边，透明底
+struct DSSecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(DSFont.text(10.5, weight: .medium))
+            .foregroundStyle(DS.ink)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                Rectangle().fill(configuration.isPressed ? DS.tick : Color.clear)
+            )
+            .overlay(
+                Rectangle().strokeBorder(DS.rule, lineWidth: 1)
+            )
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+/// 文字操作：无框，按下变灰
+struct DSGhostButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(DSFont.text(10.5, weight: .medium))
+            .foregroundStyle(configuration.isPressed ? DS.ink3 : DS.ink2)
+    }
+}
+
+/// 刻度式分段选择：选中项由信号色下划线标记，不用胶囊底
+struct DSSegmentedScale: View {
+    let options: [String]
+    let selectedIndex: Int
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(options.enumerated()), id: \.offset) { index, label in
+                let selected = index == selectedIndex
+
+                Button {
+                    onSelect(index)
+                } label: {
+                    VStack(spacing: 5) {
+                        Text(label)
+                            .font(DSFont.text(9.5, weight: selected ? .semibold : .regular))
+                            .foregroundStyle(selected ? DS.ink : DS.ink3)
+                            .frame(maxWidth: .infinity)
+                        Rectangle()
+                            .fill(selected ? DS.signal : Color.clear)
+                            .frame(height: 1.5)
+                    }
+                    .padding(.top, 6)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .overlay(alignment: .top) { Hairline(color: DS.ruleSoft) }
+    }
+}
+
+// MARK: - 图标操作
+
+/// 扁平图标操作：默认墨灰，悬停变墨并出现 1px 信号色刻度
 struct DSIconButton: View {
     let systemName: String
     var help: String = ""
-    var tint: Color = DS.textSecondary
-    var hoverTint: Color = DS.textPrimary
-    var hoverFill: Color = DS.cardSoft
-    var size: CGFloat = 28
+    var tint: Color = DS.ink3
+    var hoverTint: Color = DS.ink
+    var hoverFill: Color = .clear
+    var size: CGFloat = 24
     var action: () -> Void
 
     @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: size * 0.43, weight: .semibold))
-                .foregroundStyle(hovering ? hoverTint : tint)
-                .frame(width: size, height: size)
-                .background(Circle().fill(hovering ? hoverFill : Color.clear))
-                .contentShape(Circle())
+            VStack(spacing: 3) {
+                Image(systemName: systemName)
+                    .font(.system(size: size * 0.48, weight: .medium))
+                    .foregroundStyle(hovering ? hoverTint : tint)
+                    .frame(width: size, height: size * 0.72)
+
+                Rectangle()
+                    .fill(hovering ? DS.signal : Color.clear)
+                    .frame(width: size * 0.62, height: 1)
+            }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help(help)
         .accessibilityLabel(help)
-        .animation(.easeOut(duration: 0.15), value: hovering)
+        .animation(.easeOut(duration: 0.12), value: hovering)
     }
 }
 
-// MARK: - 按钮样式
+// MARK: - 品牌标记
 
-struct DSPrimaryButtonStyle: ButtonStyle {
-    var color: Color = DS.brand
-    var expands: Bool = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, expands ? 12 : 11)
-            .padding(.vertical, 6)
-            .frame(maxWidth: expands ? .infinity : nil)
-            .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(color.opacity(configuration.isPressed ? 0.82 : 1))
-            )
-            .shadow(color: color.opacity(configuration.isPressed ? 0 : 0.24), radius: 7, x: 0, y: 3)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
-    }
-}
-
-struct DSSecondaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(DS.textPrimary)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(configuration.isPressed ? DS.cardHover : DS.cardSoft)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(DS.border, lineWidth: 0.8)
-            )
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
-    }
-}
-
-// MARK: - 品牌标识
-
+/// 字标：1px 线框 + 等宽字母，取代渐变方块
 struct DSLogo: View {
-    var size: CGFloat = 32
+    var size: CGFloat = 28
+    var label: String = "DS"
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.31, style: .continuous)
-                .fill(DS.heroGradient)
-            RoundedRectangle(cornerRadius: size * 0.31, style: .continuous)
-                .strokeBorder(.white.opacity(0.20), lineWidth: 0.8)
-            Text("DS")
-                .font(.system(size: size * 0.36, weight: .heavy, design: .rounded))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.14), radius: 1, x: 0, y: 1)
+            Rectangle()
+                .strokeBorder(DS.ink.opacity(0.55), lineWidth: 1)
+            Text(label)
+                .font(DSFont.label(size * 0.34, weight: .bold))
+                .tracking(0.5)
+                .foregroundStyle(DS.ink)
         }
         .frame(width: size, height: size)
-        .shadow(color: DS.brand.opacity(0.32), radius: 8, x: 0, y: 4)
     }
 }
 
-// MARK: - 通用小组件
+// MARK: - 区块容器
 
-struct DSSectionTitle: View {
-    let text: String
+/// 台账区块：只留顶部一条发丝线，无填充、无圆角、无阴影
+struct DSCardModifier: ViewModifier {
+    var padding: CGFloat
+    var radius: CGFloat
 
-    var body: some View {
-        Text(text)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(DS.textPrimary)
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 16)
+            .padding(.vertical, padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .top) {
+                Hairline(color: DS.ruleSoft)
+            }
     }
 }
 
-struct DSDivider: View {
-    var body: some View {
-        Rectangle()
-            .fill(DS.divider)
-            .frame(height: 1)
+extension View {
+    func dsCard(padding: CGFloat = 14, radius: CGFloat = DS.radius) -> some View {
+        modifier(DSCardModifier(padding: padding, radius: radius))
     }
 }

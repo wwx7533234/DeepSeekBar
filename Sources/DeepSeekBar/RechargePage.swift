@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 充值 · 官方页面内嵌在纸面里：上方余额读数，下方网页，四周只有发丝线。
 struct RechargePage: View {
     @EnvironmentObject var state: AppState
     var onBack: () -> Void
@@ -10,18 +11,14 @@ struct RechargePage: View {
     @State private var justToppedUp = false
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 0) {
             header
             balanceRow
-
             webCard
-
             footer
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
-        .frame(width: 380, height: 620)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DS.ground)
         .task {
             // 支付页面停留期间每 8 秒刷新一次余额，到账后即时反馈。
             while !Task.isCancelled {
@@ -50,63 +47,68 @@ struct RechargePage: View {
     // MARK: - 头部
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Text("充值")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(DS.textPrimary)
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Text("充值")
+                    .font(DSFont.text(13, weight: .semibold))
+                    .tracking(0.3)
+                    .foregroundStyle(DS.ink)
 
-            Spacer()
+                Rectangle()
+                    .fill(DS.rule)
+                    .frame(width: 14, height: 1)
 
-            if justToppedUp {
-                DSPill(text: "余额已更新", color: DS.green, icon: "checkmark.circle.fill")
-            } else {
-                DSPill(text: "官方充值", color: DS.brand, icon: "shield.lefthalf.filled")
+                Text("TOP UP")
+                    .font(DSFont.label(8, weight: .medium))
+                    .tracking(1.6)
+                    .foregroundStyle(DS.ink3)
+
+                Spacer()
+
+                if justToppedUp {
+                    DSPill(text: "余额已更新", color: DS.ok, showsDot: false)
+                } else {
+                    DSPill(text: "官方充值", color: DS.ink3, showsDot: false)
+                }
             }
+            .padding(.horizontal, 16)
+            .frame(height: 44)
+
+            Hairline()
         }
     }
 
     // MARK: - 当前余额
 
     private var balanceRow: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("当前余额")
-                    .font(.system(size: 9))
-                    .foregroundStyle(DS.textTertiary)
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(currencySymbol)
+                .font(DSFont.figure(15, weight: .medium))
+                .foregroundStyle(DS.ink2)
 
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text(currencySymbol)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(DS.textSecondary)
-                    Text(String(format: "%.2f", state.lastBalance?.totalBalance ?? 0))
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(DS.textPrimary)
-                        .contentTransition(.numericText())
-                }
-            }
+            Text(String(format: "%.2f", state.lastBalance?.totalBalance ?? 0))
+                .font(DSFont.figure(28, weight: .semibold))
+                .tracking(-0.8)
+                .foregroundStyle(DS.ink)
+                .contentTransition(.numericText())
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("支付完成后")
-                    .font(.system(size: 8.5))
-                    .foregroundStyle(DS.textTertiary)
-                Text("余额自动刷新")
-                    .font(.system(size: 9.5, weight: .medium))
-                    .foregroundStyle(DS.textSecondary)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text("支付完成后自动刷新")
+                    .font(DSFont.text(8.5))
+                    .foregroundStyle(DS.ink3)
+                HStack(spacing: 4) {
+                    Rectangle().fill(DS.ok).frame(width: 4, height: 4)
+                    Text("官方支付通道")
+                        .font(DSFont.text(8.5))
+                        .foregroundStyle(DS.ink2)
+                }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(DS.card)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(DS.border, lineWidth: 0.8)
-        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .overlay(alignment: .bottom) { Hairline(color: DS.ruleSoft) }
     }
 
     private var currencySymbol: String {
@@ -127,22 +129,20 @@ struct RechargePage: View {
             if isLoading {
                 ProgressView()
                     .controlSize(.small)
-                    .padding(11)
-                    .background(.regularMaterial, in: Circle())
+                    .padding(10)
+                    .background(DS.ground, in: Rectangle())
+                    .overlay(Rectangle().strokeBorder(DS.rule, lineWidth: 1))
                     .allowsHitTesting(false)
             }
 
             if let errorMessage {
-                VStack(spacing: 8) {
-                    Image(systemName: "wifi.exclamationmark")
-                        .font(.system(size: 18))
-                        .foregroundStyle(DS.amber)
+                VStack(spacing: 9) {
                     Text("充值页加载失败")
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(DS.textPrimary)
+                        .font(DSFont.text(11.5, weight: .semibold))
+                        .foregroundStyle(DS.ink)
                     Text(errorMessage)
-                        .font(.system(size: 8.5))
-                        .foregroundStyle(DS.textSecondary)
+                        .font(DSFont.text(8.5))
+                        .foregroundStyle(DS.ink2)
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
                     Button("重试") {
@@ -153,16 +153,19 @@ struct RechargePage: View {
                     .buttonStyle(DSPrimaryButtonStyle())
                 }
                 .padding(16)
-                .background(
-                    .regularMaterial,
-                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                )
+                .background(DS.ground)
+                .overlay(Rectangle().strokeBorder(DS.rule, lineWidth: 1))
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .overlay(alignment: .top) { Hairline(color: DS.ruleSoft) }
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(DS.border, lineWidth: 0.8)
+            Rectangle()
+                .strokeBorder(DS.rule, lineWidth: 1)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .allowsHitTesting(false)
         )
         .frame(maxHeight: .infinity)
     }
@@ -170,32 +173,33 @@ struct RechargePage: View {
     // MARK: - 底部
 
     private var footer: some View {
-        HStack(spacing: 8) {
-            Button("返回") { onBack() }
-                .buttonStyle(DSSecondaryButtonStyle())
+        VStack(spacing: 0) {
+            Hairline()
 
-            Spacer()
+            HStack(spacing: 8) {
+                DSIconButton(systemName: "chevron.left", help: "返回", size: 24, action: onBack)
+                Text("返回")
+                    .font(DSFont.text(10, weight: .medium))
+                    .foregroundStyle(DS.ink2)
+                    .onTapGesture { onBack() }
 
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 8.5))
-                .foregroundStyle(DS.green)
-            Text("官方支付")
-                .font(.system(size: 8.5))
-                .foregroundStyle(DS.textTertiary)
+                Spacer()
 
-            Button("刷新余额") {
-                Task { await state.refreshBalance(silent: true) }
+                Button("刷新余额") {
+                    Task { await state.refreshBalance(silent: true) }
+                }
+                .buttonStyle(.plain)
+                .font(DSFont.text(9, weight: .medium))
+                .foregroundStyle(DS.ink2)
+
+                DSIconButton(systemName: "arrow.clockwise", help: "重新加载充值页", size: 24) {
+                    reloadID = UUID()
+                    isLoading = true
+                    errorMessage = nil
+                }
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 8.5, weight: .medium))
-            .foregroundStyle(DS.brand)
-
-            DSIconButton(systemName: "arrow.clockwise", help: "重新加载充值页", size: 22) {
-                reloadID = UUID()
-                isLoading = true
-                errorMessage = nil
-            }
+            .padding(.horizontal, 14)
+            .frame(height: 44)
         }
-        .padding(.horizontal, 3)
     }
 }

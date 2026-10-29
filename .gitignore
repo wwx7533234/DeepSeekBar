@@ -8,3 +8,4 @@ credentials.json
 .env
 .env.*
 *.log
+.oil-ui/

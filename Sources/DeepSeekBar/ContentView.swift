@@ -14,22 +14,14 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
+            DS.ground
+
             pageContent
-                .transition(.opacity.combined(with: .scale(scale: 0.99)))
+                .transition(.opacity)
         }
-        .frame(width: 380)
-        .background(
-            DS.background.overlay(alignment: .topTrailing) {
-                RadialGradient(
-                    colors: [DS.brand.opacity(0.10), .clear],
-                    center: .topTrailing,
-                    startRadius: 0,
-                    endRadius: 300
-                )
-                .allowsHitTesting(false)
-            }
-        )
-        .animation(.easeInOut(duration: 0.20), value: page)
+        .frame(width: DS.panelWidth, height: DS.panelHeight)
+        .clipped()
+        .animation(.easeInOut(duration: 0.16), value: page)
         .onAppear {
             NSApp.activate(ignoringOtherApps: true)
             guard !hasAppeared else { return }
@@ -59,7 +51,7 @@ struct ContentView: View {
     }
 
     private func go(to destination: ContentPage) {
-        withAnimation(.spring(response: 0.34, dampingFraction: 0.9)) {
+        withAnimation(.easeInOut(duration: 0.16)) {
             page = destination
         }
     }

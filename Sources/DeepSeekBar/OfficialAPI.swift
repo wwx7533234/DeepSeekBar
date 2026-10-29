@@ -71,8 +71,14 @@ enum OfficialAPI {
         let costs = (biz["total_costs"] as? [[String: Any]]) ?? []
 
         var s = OfficialSummary()
-        if let w = cnyFirst(wallets) { s.currentToken += asDouble(w["balance"]) }
-        if let b = cnyFirst(bonus) { s.currentToken += asDouble(b["balance"]) }
+        if let w = cnyFirst(wallets) {
+            s.toppedUpBalance = asDouble(w["balance"])
+            s.currentToken += s.toppedUpBalance
+        }
+        if let b = cnyFirst(bonus) {
+            s.grantedBalance = asDouble(b["balance"])
+            s.currentToken += s.grantedBalance
+        }
         if let c = cnyFirst(costs) { s.totalUsage = asDouble(c["amount"]) }
         return s
     }

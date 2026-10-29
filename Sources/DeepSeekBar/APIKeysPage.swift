@@ -47,7 +47,7 @@ struct APIKeysPage: View {
                 deleteOverlay(deleteTarget)
             }
         }
-        .frame(width: 380, height: 620)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
             if state.officialToken != nil {
                 await reload()
@@ -71,7 +71,7 @@ struct APIKeysPage: View {
             header
 
             ScrollView(.vertical, showsIndicators: true) {
-                VStack(spacing: 10) {
+                VStack(spacing: 0) {
                     introCard
 
                     if state.officialToken == nil {
@@ -91,8 +91,6 @@ struct APIKeysPage: View {
                         footerNote
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 2)
                 .padding(.bottom, 14)
             }
 
@@ -101,158 +99,149 @@ struct APIKeysPage: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Text("API 管理")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(DS.textPrimary)
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Text("API 管理")
+                    .font(DSFont.text(13, weight: .semibold))
+                    .tracking(0.3)
+                    .foregroundStyle(DS.ink)
 
-            Spacer()
+                Rectangle()
+                    .fill(DS.rule)
+                    .frame(width: 14, height: 1)
 
-            if state.officialToken != nil {
-                DSPill(text: "\(keys.count) 个 Key", color: DS.textSecondary, showsDot: false)
+                Text("API KEYS")
+                    .font(DSFont.label(8, weight: .medium))
+                    .tracking(1.6)
+                    .foregroundStyle(DS.ink3)
+
+                Spacer()
+
+                if state.officialToken != nil {
+                    DSPill(text: "\(keys.count) KEYS", color: DS.ink3, showsDot: false)
+                }
             }
+            .padding(.horizontal, 16)
+            .frame(height: 44)
+
+            Hairline()
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
     }
 
     private var pageFooter: some View {
-        HStack(spacing: 8) {
-            Button("返回") { onBack() }
-                .buttonStyle(DSSecondaryButtonStyle())
+        VStack(spacing: 0) {
+            Hairline()
 
-            Spacer()
+            HStack(spacing: 8) {
+                DSIconButton(systemName: "chevron.left", help: "返回", size: 24, action: onBack)
+                Text("返回")
+                    .font(DSFont.text(10, weight: .medium))
+                    .foregroundStyle(DS.ink2)
+                    .onTapGesture { onBack() }
 
-            if state.officialToken != nil && !requiresReauth {
-                Button("新建") {
-                    actionError = nil
-                    newKeyName = ""
-                    showCreate = true
+                Spacer()
+
+                if state.officialToken != nil && !requiresReauth {
+                    Button("新建") {
+                        actionError = nil
+                        newKeyName = ""
+                        showCreate = true
+                    }
+                    .buttonStyle(DSPrimaryButtonStyle())
                 }
-                .buttonStyle(DSPrimaryButtonStyle())
-            }
 
-            DSIconButton(systemName: "arrow.clockwise", help: "刷新 API Key 列表", size: 22) {
-                Task { await reload() }
+                DSIconButton(systemName: "arrow.clockwise", help: "刷新 API Key 列表", size: 24) {
+                    Task { await reload() }
+                }
             }
+            .padding(.horizontal, 14)
+            .frame(height: 44)
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 6)
-        .padding(.bottom, 10)
-        .background(DS.background)
     }
 
     private var introCard: some View {
-        HStack(alignment: .top, spacing: 9) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(DS.brand.opacity(0.10))
-                    .frame(width: 30, height: 30)
-                Image(systemName: "key.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(DS.brand)
-            }
+        VStack(alignment: .leading, spacing: 7) {
+            SectionHead("平台 API Keys", meta: "PLATFORM")
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("DeepSeek 平台 API Keys")
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(DS.textPrimary)
-                Text("创建、重命名或删除 Key；完整 Key 只在创建时显示一次。")
-                    .font(.system(size: 9))
-                    .foregroundStyle(DS.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 4)
-
-            if state.officialToken != nil && !requiresReauth {
-                Button("新建") {
-                    actionError = nil
-                    newKeyName = ""
-                    showCreate = true
-                }
-                .buttonStyle(DSPrimaryButtonStyle())
-            }
+            Text("创建、重命名或删除 Key；完整 Key 只在创建时显示一次。")
+                .font(DSFont.text(9))
+                .foregroundStyle(DS.ink3)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .dsCard(padding: 12)
+        .dsCard(padding: 14)
     }
 
     private var footerNote: some View {
-        HStack(alignment: .top, spacing: 5) {
-            Image(systemName: "exclamationmark.shield.fill")
-                .font(.system(size: 9))
-                .foregroundStyle(DS.amber)
-                .padding(.top, 1)
+        HStack(alignment: .top, spacing: 6) {
+            Rectangle()
+                .fill(DS.warn)
+                .frame(width: 4, height: 4)
+                .padding(.top, 4)
             Text("删除 Key 后，正在使用该 Key 的程序会立即失效且无法恢复。")
-                .font(.system(size: 8.5))
-                .foregroundStyle(DS.textTertiary)
+                .font(DSFont.text(8.5))
+                .foregroundStyle(DS.ink3)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
-        .padding(.horizontal, 4)
-        .padding(.top, 2)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     // MARK: - 状态卡片
 
     private var authCard: some View {
-        VStack(spacing: 9) {
-            Image(systemName: "person.badge.key.fill")
-                .font(.system(size: 22))
-                .foregroundStyle(DS.brand)
-            Text("先授权官方账号")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(DS.textPrimary)
-            Text("API 管理使用与官方用量相同的网页登录 token，不会读取或上传你的 Key。")
-                .font(.system(size: 9))
-                .foregroundStyle(DS.textSecondary)
-                .multilineTextAlignment(.center)
+        VStack(alignment: .leading, spacing: 9) {
+            SectionHead("尚未授权", meta: "REQUIRED")
+
+            Text("API 管理与官方用量共用网页登录 token，不会读取或上传你的 Key。")
+                .font(DSFont.text(9))
+                .foregroundStyle(DS.ink2)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("网页登录授权") {
-                state.openOfficialLogin()
+
+            HStack(spacing: 8) {
+                Button("网页登录授权") { state.openOfficialLogin() }
+                    .buttonStyle(DSPrimaryButtonStyle())
+                Spacer()
             }
-            .buttonStyle(DSPrimaryButtonStyle())
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
         .dsCard(padding: 14)
     }
 
     private var reauthCard: some View {
-        VStack(spacing: 10) {
-            Label("登录已过期，请重新授权", systemImage: "exclamationmark.triangle.fill")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(DS.red)
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHead("登录已过期", meta: "EXPIRED")
+
             HStack(spacing: 8) {
                 Button("重新授权") { state.openOfficialLogin() }
                     .buttonStyle(DSPrimaryButtonStyle())
                 Button("重试") { Task { await reload() } }
                     .buttonStyle(DSSecondaryButtonStyle())
+                Spacer()
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
         .dsCard(padding: 14)
     }
 
     private var loadingCard: some View {
         HStack(spacing: 9) {
-            ProgressView().controlSize(.small)
+            ProgressView().controlSize(.mini).scaleEffect(0.65)
             Text("正在读取 API Keys…")
-                .font(.system(size: 10))
-                .foregroundStyle(DS.textSecondary)
+                .font(DSFont.text(9))
+                .foregroundStyle(DS.ink3)
             Spacer()
         }
-        .dsCard(padding: 14)
+        .dsCard(padding: 16)
     }
 
     private func errorCard(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: 9) {
-            Label(message, systemImage: "exclamationmark.triangle.fill")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(DS.amber)
+            SectionHead("读取失败", meta: "ERROR")
+
+            Text(message)
+                .font(DSFont.text(9))
+                .foregroundStyle(DS.ink2)
                 .fixedSize(horizontal: false, vertical: true)
+
             HStack(spacing: 8) {
                 Button("重试") { Task { await reload() } }
                     .buttonStyle(DSPrimaryButtonStyle())
@@ -260,32 +249,30 @@ struct APIKeysPage: View {
                     Button("重新授权") { state.openOfficialLogin() }
                         .buttonStyle(DSSecondaryButtonStyle())
                 }
+                Spacer()
             }
         }
         .dsCard(padding: 14)
     }
 
     private var emptyCard: some View {
-        VStack(spacing: 9) {
-            Image(systemName: "key")
-                .font(.system(size: 22))
-                .foregroundStyle(DS.textTertiary)
-            Text("还没有 API Key")
-                .font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(DS.textPrimary)
+        VStack(alignment: .leading, spacing: 9) {
+            SectionHead("还没有 API Key", meta: "EMPTY")
+
             Text("创建一个 Key 后，可一键设为当前余额查询 Key。")
-                .font(.system(size: 9))
-                .foregroundStyle(DS.textSecondary)
-                .multilineTextAlignment(.center)
-            Button("创建第一个 Key") {
-                actionError = nil
-                newKeyName = ""
-                showCreate = true
+                .font(DSFont.text(9))
+                .foregroundStyle(DS.ink2)
+
+            HStack(spacing: 8) {
+                Button("创建第一个 Key") {
+                    actionError = nil
+                    newKeyName = ""
+                    showCreate = true
+                }
+                .buttonStyle(DSPrimaryButtonStyle())
+                Spacer()
             }
-            .buttonStyle(DSPrimaryButtonStyle())
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
         .dsCard(padding: 14)
     }
 
@@ -295,21 +282,21 @@ struct APIKeysPage: View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 6) {
                 Text(key.name)
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(DS.textPrimary)
+                    .font(DSFont.text(11, weight: .semibold))
+                    .foregroundStyle(DS.ink)
                     .lineLimit(1)
 
                 if isCurrentKey(key) {
-                    DSPill(text: "当前使用", color: DS.green, icon: "checkmark.circle.fill", size: 8.5)
+                    DSPill(text: "当前使用", color: DS.ok, size: 8)
                 }
                 if key.isHarnessKey {
-                    DSPill(text: "DSH", color: DS.violet, icon: "link", size: 8.5)
+                    DSPill(text: "DSH", color: DS.violet, size: 8)
                 }
 
                 Spacer(minLength: 4)
 
                 if key.canManage {
-                    DSIconButton(systemName: "pencil", help: "重命名", size: 23) {
+                    DSIconButton(systemName: "pencil", help: "重命名", size: 22) {
                         actionError = nil
                         renameName = key.name
                         renameTarget = key
@@ -317,10 +304,9 @@ struct APIKeysPage: View {
                     DSIconButton(
                         systemName: "trash",
                         help: "删除",
-                        tint: DS.red.opacity(0.75),
-                        hoverTint: DS.red,
-                        hoverFill: DS.red.opacity(0.10),
-                        size: 23
+                        tint: DS.ink3,
+                        hoverTint: DS.err,
+                        size: 22
                     ) {
                         actionError = nil
                         deleteTarget = key
@@ -329,19 +315,22 @@ struct APIKeysPage: View {
             }
 
             Text(key.maskedKey.isEmpty ? "由 DeepSeek Harness 管理" : key.maskedKey)
-                .font(.system(size: 9.5, design: .monospaced))
-                .foregroundStyle(DS.textSecondary)
+                .font(DSFont.label(9.5, weight: .regular))
+                .foregroundStyle(DS.ink2)
                 .lineLimit(1)
                 .textSelection(.enabled)
 
-            HStack(spacing: 5) {
-                Text("创建 \(formatDate(key.createdAt))")
-                Text("·").opacity(0.5)
-                Text(key.lastUsed.map { "最近使用 \(formatDate($0))" } ?? "从未使用")
+            HStack(spacing: 7) {
+                MonoTag(text: "CREATED", size: 7.5)
+                Text(formatDate(key.createdAt))
+                    .font(DSFont.label(8.5, weight: .regular))
+                    .foregroundStyle(DS.ink3)
+                Rectangle().fill(DS.rule).frame(width: 8, height: 1)
+                Text(key.lastUsed.map { "最近使用 " + formatDate($0) } ?? "从未使用")
+                    .font(DSFont.text(8.5))
+                    .foregroundStyle(DS.ink3)
                 Spacer()
             }
-            .font(.system(size: 8.5))
-            .foregroundStyle(DS.textTertiary)
         }
         .dsCard(padding: 12)
     }
@@ -362,21 +351,14 @@ struct APIKeysPage: View {
 
     private func overlayContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         ZStack {
-            Color.black.opacity(0.28)
+            Color.black.opacity(0.16)
                 .ignoresSafeArea()
 
             content()
-                .padding(14)
+                .padding(16)
                 .frame(width: 330)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(DS.card)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(DS.border, lineWidth: 0.8)
-                )
-                .shadow(color: .black.opacity(0.20), radius: 24, x: 0, y: 12)
+                .background(DS.raise)
+                .overlay(Rectangle().strokeBorder(DS.rule, lineWidth: 1))
         }
         .transition(.opacity.combined(with: .scale(scale: 0.98)))
     }
@@ -402,17 +384,12 @@ struct APIKeysPage: View {
 
                 TextField("Key 名称", text: $newKeyName)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(DS.textPrimary)
-                    .padding(9)
-                    .background(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(DS.cardSoft)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(DS.border, lineWidth: 0.8)
-                    )
+                    .font(DSFont.text(11.5))
+                    .foregroundStyle(DS.ink)
+                    .padding(.vertical, 6)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(DS.ink.opacity(0.35)).frame(height: 1)
+                    }
                     .onSubmit { Task { await createKey() } }
 
                 if let actionError {
@@ -467,16 +444,10 @@ struct APIKeysPage: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
                     .textSelection(.enabled)
-                    .padding(9)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 9)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(DS.cardSoft)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(DS.border, lineWidth: 0.8)
-                    )
+                    .overlay(Rectangle().strokeBorder(DS.rule, lineWidth: 1))
 
                 HStack(spacing: 7) {
                     Button(copiedSecret ? "已复制" : "复制 Key") {
@@ -529,17 +500,12 @@ struct APIKeysPage: View {
 
                 TextField("新名称", text: $renameName)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(DS.textPrimary)
-                    .padding(9)
-                    .background(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(DS.cardSoft)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(DS.border, lineWidth: 0.8)
-                    )
+                    .font(DSFont.text(11.5))
+                    .foregroundStyle(DS.ink)
+                    .padding(.vertical, 6)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(DS.ink.opacity(0.35)).frame(height: 1)
+                    }
                     .onSubmit { Task { await renameKey(key) } }
 
                 if let actionError {

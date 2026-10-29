@@ -59,10 +59,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let root = ContentView(initialPage: page)
                 .environmentObject(state)
                 .background(DS.background)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(DS.border.opacity(0.9), lineWidth: 0.8)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(DS.rule, lineWidth: 1)
                 )
 
             let host = NSHostingController(rootView: root)
@@ -106,10 +106,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .environment(\.colorScheme, scheme)
             .frame(width: 380)
             .background(DS.background)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(DS.border.opacity(0.9), lineWidth: 0.8)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(DS.rule, lineWidth: 1)
             )
 
         let renderer = ImageRenderer(content: root)
@@ -132,6 +132,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+/// 菜单栏图标：把货币符号当作标记画成模板图，随菜单栏明暗自动反色。
+/// 不用 chart.bar 这类图标，避免被看成信号强度。
+enum MenuBarMark {
+    private static var cache: [String: NSImage] = [:]
+
+    /// 按样式取图，带缓存，避免每次刷新都重绘
+    static func icon(for style: MenuBarIconStyle) -> NSImage? {
+        switch style {
+        case .amount:
+            return nil
+        case .standard:
+            if let cached = cache["standard"] { return cached }
+            guard let image = MenuBarMark.symbol() else { return nil }
+            cache["standard"] = image
+            return image
+        }
+    }
+
+    /// 常规图标：DeepSeek 的鲸鱼意象（系统里最接近的鱼形符号），
+    /// 模板渲染，随菜单栏明暗反色；只画图标，不带金额。
+    static func symbol() -> NSImage? {
+        // DSBAR_SYMBOL 可在调试时替换符号名，用于比较不同图标
+        let name = ProcessInfo.processInfo.environment["DSBAR_SYMBOL"] ?? "fish"
+        guard let base = NSImage(systemSymbolName: name,
+                                 accessibilityDescription: "DeepSeekBar") else { return nil }
+        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+        guard let image = base.withSymbolConfiguration(config) else { return base }
+        image.isTemplate = true
+        return image
+    }
+
+}
+
+/// 菜单栏：图标 + 金额，样式由设置决定
+struct MenuBarLabel: View {
+    @ObservedObject var state: AppState
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if let icon = MenuBarMark.icon(for: state.menuBarIconStyle) {
+                Image(nsImage: icon)
+            }
+            if !state.menuBarText.isEmpty {
+                Text(state.menuBarText)
+                    .monospacedDigit()
+            }
+        }
+    }
+}
+
 @main
 struct DeepSeekBarApp: App {
     @StateObject private var appState: AppState
@@ -148,7 +198,7 @@ struct DeepSeekBarApp: App {
             ContentView()
                 .environmentObject(appState)
         } label: {
-            Label(appState.menuBarTitle, systemImage: "chart.line.uptrend.xyaxis")
+            MenuBarLabel(state: appState)
         }
         .menuBarExtraStyle(.window)
     }

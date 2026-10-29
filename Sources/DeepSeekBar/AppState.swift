@@ -31,6 +31,26 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// 余额来源：自动 / API Key / 网页账号
+    @Published var balanceSource: BalanceSource {
+        didSet {
+            guard oldValue != balanceSource else { return }
+            settings.balanceSource = balanceSource
+            Task { await refreshBalanceIfNeeded(force: true) }
+        }
+    }
+
+    /// 菜单栏图标样式
+    @Published var menuBarIconStyle: MenuBarIconStyle {
+        didSet {
+            guard oldValue != menuBarIconStyle else { return }
+            settings.menuBarIconStyle = menuBarIconStyle
+        }
+    }
+
+    /// 最近一次成功取数的来源（自动模式下可能与设置里的选择不同）
+    @Published private(set) var balanceProvider: BalanceSource?
+
     @Published private(set) var officialData = OfficialUsageData()
     @Published var officialState: OfficialState = .notAuthorized
     @Published private(set) var officialToken: String?
@@ -44,6 +64,8 @@ final class AppState: ObservableObject {
     init() {
         officialToken = KeychainStore.officialToken
         refreshInterval = settings.refreshInterval
+        balanceSource = settings.balanceSource
+        menuBarIconStyle = settings.menuBarIconStyle
 
         startRefreshLoop()
         Task { await refreshBalanceIfNeeded(force: true) }
@@ -62,6 +84,35 @@ final class AppState: ObservableObject {
 
     var apiKeyConfigured: Bool { settings.apiKey != nil }
 
+    /// 当前实际生效的余额来源；nil 表示两种凭证都不可用。
+    var activeBalanceSource: BalanceSource? {
+        let hasKey = !(settings.apiKey ?? "").isEmpty
+        let hasWeb = officialToken != nil
+        switch balanceSource {
+        case .apiKey:     return hasKey ? .apiKey : nil
+        case .webAccount: return hasWeb ? .webAccount : nil
+        case .auto:
+            // 网页账号优先：钱包余额与网页版一致，不用额外填 Key
+            if hasWeb { return .webAccount }
+            return hasKey ? .apiKey : nil
+        }
+    }
+
+    /// 给设置页看的一句话状态
+    var balanceSourceNote: String {
+        if let provider = balanceProvider {
+            switch provider {
+            case .apiKey:     return "当前用 API Key 读取余额"
+            case .webAccount: return "当前用网页账号读取余额"
+            case .auto:       return "自动选择来源"
+            }
+        }
+        if let active = activeBalanceSource, active == .webAccount {
+            return "网页账号待同步"
+        }
+        return balanceSource == .webAccount ? "网页账号未登录" : "还没有可用的凭证"
+    }
+
     var isRefreshing: Bool {
         if case .loading = status { return true }
         if case .loading = officialState { return true }
@@ -72,7 +123,10 @@ final class AppState: ObservableObject {
         KeychainStore.delete()
         lastBalance = nil
         lastUpdated = nil
+        balanceProvider = nil
         status = .notConfigured
+        // 自动/网页账号模式下，Key 被清掉后可能还有网页账号可用
+        Task { await refreshBalanceIfNeeded(force: true) }
     }
 
     /// API 管理页把新建的 Key 设为当前余额查询 Key。
@@ -82,7 +136,7 @@ final class AppState: ObservableObject {
     }
 
     func refreshBalanceIfNeeded(force: Bool, silent: Bool = false) async {
-        guard let key = settings.apiKey, !key.isEmpty else {
+        guard let source = activeBalanceSource else {
             status = .notConfigured
             return
         }
@@ -93,15 +147,38 @@ final class AppState: ObservableObject {
                 return
             }
         }
-        await refreshBalance(key: key, silent: silent)
+        await refreshBalance(from: source, silent: silent)
     }
 
     func refreshBalance(silent: Bool = false) async {
-        guard let key = settings.apiKey, !key.isEmpty else {
+        guard let source = activeBalanceSource else {
             status = .notConfigured
             return
         }
-        await refreshBalance(key: key, silent: silent)
+        await refreshBalance(from: source, silent: silent)
+    }
+
+    private func refreshBalance(from source: BalanceSource, silent: Bool) async {
+        let key = settings.apiKey?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let hasKey = !key.isEmpty
+
+        switch source {
+        case .webAccount:
+            let ok = await fetchBalanceFromWeb(silent: silent)
+            if !ok, balanceSource == .auto, hasKey {
+                _ = await fetchBalanceFromKey(key, silent: silent)
+            }
+
+        case .apiKey, .auto:
+            guard hasKey else {
+                status = .notConfigured
+                return
+            }
+            let ok = await fetchBalanceFromKey(key, silent: silent)
+            if !ok, balanceSource == .auto, officialToken != nil {
+                _ = await fetchBalanceFromWeb(silent: silent)
+            }
+        }
     }
 
     /// 面板右上角手动刷新：余额 + 官方用量一起更新。
@@ -127,23 +204,71 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func refreshBalance(key: String, silent: Bool) async {
+    private func fetchBalanceFromKey(_ key: String, silent: Bool) async -> Bool {
         if !silent { status = .loading }
         do {
             let info = try await DeepSeekAPI.fetchBalance(apiKey: key)
             lastBalance = info
+            balanceProvider = .apiKey
             if info.isAvailable {
                 status = .ok(info)
             } else {
                 status = .insufficient("账户不可用，请检查 DeepSeek 平台")
             }
             lastUpdated = Date()
+            return info.isAvailable
         } catch {
             // 后台静默刷新失败时保留上一次成功数据，不打断面板展示。
             if !silent || lastBalance == nil {
                 status = .failed(error.localizedDescription)
             }
+            balanceProvider = nil
+            return false
         }
+    }
+
+    /// 用网页登录账号里的钱包余额作为余额来源。
+    @discardableResult
+    private func fetchBalanceFromWeb(silent: Bool) async -> Bool {
+        guard officialToken != nil else {
+            status = .notConfigured
+            return false
+        }
+        if !silent { status = .loading }
+
+        let stale = officialData.fetchedAt.map { Date().timeIntervalSince($0) > 60 } ?? true
+        if stale {
+            await refreshOfficial(silent: true)
+        }
+
+        // 必须拿到新鲜数据：token 过期时 fetchedAt 会停在旧时间，这里直接判失败，
+        // 交给分流层回落到 API Key（自动模式）。
+        guard let fetchedAt = officialData.fetchedAt,
+              Date().timeIntervalSince(fetchedAt) < 120 else {
+            if !silent || lastBalance == nil {
+                status = .failed(officialMessage ?? "网页账号数据不可用，请重新登录")
+            }
+            balanceProvider = nil
+            return false
+        }
+
+        let summary = officialData.summary
+        let total = summary.toppedUpBalance + summary.grantedBalance
+        let info = BalanceInfo(
+            isAvailable: total > 0,
+            currency: "CNY",
+            totalBalance: total > 0 ? total : summary.currentToken,
+            grantedBalance: summary.grantedBalance,
+            toppedUpBalance: summary.toppedUpBalance
+        )
+
+        lastBalance = info
+        balanceProvider = .webAccount
+        status = info.isAvailable
+            ? .ok(info)
+            : .insufficient("网页账号余额为 0，请充值或换用 API Key")
+        lastUpdated = officialData.fetchedAt
+        return info.isAvailable
     }
 
     // MARK: - 菜单栏标题
@@ -153,10 +278,39 @@ final class AppState: ObservableObject {
         return Self.shortBalance(info.totalBalance)
     }
 
+    /// 菜单栏里的金额（不含货币符号，符号交给图标表达）
+    var menuBarAmount: String {
+        guard let info = lastBalance else { return "" }
+        return Self.shortAmount(info.totalBalance)
+    }
+
+    /// 菜单栏文字：常规图标只画图标，显示余额只写金额
+    var menuBarText: String {
+        switch menuBarIconStyle {
+        case .standard:
+            return ""
+        case .amount:
+            let amount = menuBarAmount
+            return amount.isEmpty ? "¥—" : menuBarCurrencySymbol + amount
+        }
+    }
+
+    var menuBarCurrencySymbol: String {
+        switch (lastBalance?.currency ?? "CNY").uppercased() {
+        case "USD":        return "$"
+        case "CNY", "RMB": return "¥"
+        default:           return "¥"
+        }
+    }
+
+    static func shortAmount(_ v: Double) -> String {
+        if v >= 100 { return String(format: "%.0f", v) }
+        if v >= 10  { return String(format: "%.1f", v) }
+        return String(format: "%.2f", v)
+    }
+
     static func shortBalance(_ v: Double) -> String {
-        if v >= 100 { return String(format: "¥%.0f", v) }
-        if v >= 10  { return String(format: "¥%.1f", v) }
-        return String(format: "¥%.2f", v)
+        "¥" + shortAmount(v)
     }
 
     // MARK: - 官方用量（网页数据）
@@ -219,7 +373,10 @@ final class AppState: ObservableObject {
             KeychainStore.saveOfficialToken(token)
             self.officialToken = token
             self.officialMessage = "授权成功，正在同步官方数据…"
-            Task { await self.refreshOfficial() }
+            Task {
+                await self.refreshOfficial()
+                await self.refreshBalanceIfNeeded(force: true)
+            }
         }
     }
 
@@ -229,6 +386,7 @@ final class AppState: ObservableObject {
         officialData = OfficialUsageData()
         officialState = .notAuthorized
         officialMessage = nil
+        Task { await refreshBalanceIfNeeded(force: true) }
     }
 
     // MARK: - 定时刷新（余额 + 官方用量，同一频率）

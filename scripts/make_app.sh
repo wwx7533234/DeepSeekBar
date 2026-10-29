@@ -31,7 +31,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleName</key><string>DeepSeekBar</string>
     <key>CFBundleDisplayName</key><string>DeepSeek 余额与用量</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.3.1</string>
+    <key>CFBundleShortVersionString</key><string>1.8.0</string>
     <key>CFBundleVersion</key><string>5</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
@@ -41,8 +41,15 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-xattr -cr "$APP" 2>/dev/null || true
+# 装到 ~/Applications，dist 只作暂存：App 库里只留一份，不会出现重复图标
+INSTALL="$HOME/Applications/DeepSeekBar.app"
+mkdir -p "$HOME/Applications"
+rm -rf "$INSTALL"
+ditto "$APP" "$INSTALL"
+rm -rf "$APP"
+
+xattr -cr "$INSTALL" 2>/dev/null || true
 # Documents 在 iCloud 同步目录下，Finder 会反复打 FinderInfo，签名前再清一次
-xattr -d com.apple.FinderInfo "$APP" 2>/dev/null || true
-codesign --force --deep --sign - "$APP"
-echo "==> ✅ $APP"
+xattr -d com.apple.FinderInfo "$INSTALL" 2>/dev/null || true
+codesign --force --deep --sign - "$INSTALL"
+echo "==> ✅ $INSTALL"
